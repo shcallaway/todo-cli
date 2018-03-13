@@ -1,0 +1,21 @@
+{
+  "name": "todo",
+  "version": "1.0.0",
+  "main": "todo.js",
+  "license": "MIT",
+  "author": "shcallaway@gmail.com",
+  "scripts": {
+    "compile": "./node_modules/typescript/bin/tsc todo.ts",
+    "binary": "node ./node_modules/nexe/index.js todo.js"
+  },
+  "dependencies": {
+    "papaparse": "^4.3.7",
+    "yargs": "^11.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^9.4.7",
+    "chalk": "^2.3.2",
+    "nexe": "^2.0.0-rc.26",
+    "typescript": "^2.7.2"
+  }
+}
