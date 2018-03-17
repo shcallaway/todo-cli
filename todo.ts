@@ -3,6 +3,7 @@ const yargs = require("yargs");
 const path = require("path");
 const chalk = require("chalk");
 const moment = require("moment");
+const emoji = require("node-emoji");
 
 enum TaskSize {
   Small = "Small",
@@ -15,6 +16,15 @@ interface Task {
   description: string;
   date: Date;
   complete: boolean;
+  identifier: number;
+}
+
+interface TaskUpdates {
+  size?: TaskSize;
+  description?: string;
+  date?: Date;
+  complete?: boolean;
+  identifier?: number;
 }
 
 interface Formatter {
@@ -33,25 +43,29 @@ const SEED_TASKS = [
     size: TaskSize.Large,
     description: "Example A",
     date: moment().subtract(8, "days"),
-    complete: false
+    complete: false,
+    identifier: generateRandomIdentifier()
   },
   {
     size: TaskSize.Medium,
     description: "Example B",
     date: moment(),
-    complete: false
+    complete: false,
+    identifier: generateRandomIdentifier()
   },
   {
     size: TaskSize.Small,
     description: "Example C",
     date: moment().subtract(20, "days"),
-    complete: true
+    complete: true,
+    identifier: generateRandomIdentifier()
   },
   {
     size: TaskSize.Medium,
     description: "Example C",
     date: moment().subtract(21, "days"),
-    complete: false
+    complete: false,
+    identifier: generateRandomIdentifier()
   }
 ];
 
@@ -75,16 +89,18 @@ class FileStorage {
 
 class TaskFormatter implements Formatter {
   public format(task: Task): string {
-    let { size, description, date, complete } = task;
+    let { size, description, date, complete, identifier } = task;
 
+    const identifierFormatter = new IdentifierFormatter();
     const dateFormatter = new DateFormatter();
     const taskSizeFormatter = new TaskSizeFormatter();
 
+    (identifier as any) = identifierFormatter.format(identifier);
     (date as any) = dateFormatter.format(date);
     (size as any) = taskSizeFormatter.format(size);
 
     description = this.formatDescription(description);
-    const result = `${date}${size}${description}`;
+    const result = `${identifier}${date}${size}${description}`;
 
     if (complete) {
       // ZSH does not support strikethrough
@@ -96,6 +112,12 @@ class TaskFormatter implements Formatter {
 
   private formatDescription(description: string): string {
     return chalk.italic(description);
+  }
+}
+
+class IdentifierFormatter implements Formatter {
+  public format(identifier: number): string {
+    return (identifier.toString() as any).padEnd(6);
   }
 }
 
@@ -146,7 +168,7 @@ class TaskList {
 
   constructor(path: string) {
     this.path = path;
-    this.tasks = this.getTasksFromFileStorage();
+    this.tasks = this.load();
     this.formatter = new TaskFormatter();
   }
 
@@ -159,17 +181,38 @@ class TaskList {
     });
 
     if (!tasks.length) {
-      console.log("There's nothing here!");
+      console.log(emoji.emojify("Go outside! :sunny:"));
     }
   }
 
-  public addNewTask(task: Task): void {
-    FileStorage.append(this.path, this.formatTaskAsRaw(task));
-    this.tasks.push(task);
-    console.log(this.formatter.format(task));
+  public complete(identifier: number): void {
+    if (!this.exists(identifier)) {
+      console.log("Could not find task with ID: " + identifier);
+      return;
+    }
+
+    const task = this.update(identifier, { complete: true });
+    this.save();
+
+    console.log("Completed: " + this.formatter.format(task));
   }
 
-  private getTasksFromFileStorage(): Array<Task> {
+  public add(task: Task): Task {
+    this.tasks.push(task);
+    this.save();
+
+    console.log("Added: " + this.formatter.format(task));
+    return task;
+  }
+
+  private update(identifier: number, updates: TaskUpdates): Task {
+    let task: Task = this.remove(identifier);
+    task = (Object as any).assign(task, updates);
+    this.tasks.push(task);
+    return task;
+  }
+
+  private load(): Array<Task> {
     if (!FileStorage.exists(this.path)) {
       return [] as Array<Task>;
     }
@@ -180,35 +223,82 @@ class TaskList {
       .map(rawTask => this.convertRawTask(rawTask));
   }
 
+  private exists(identifier: number): boolean {
+    return !!this.find(identifier);
+  }
+
+  private find(identifier: number): number {
+    this.tasks.forEach((task, index) => {
+      if (task.identifier === identifier) {
+        return index;
+      }
+    });
+
+    return -1;
+  }
+
+  private remove(identifier: number): Task {
+    const index = this.find(identifier);
+    return this.tasks.splice(index, 1)[0];
+  }
+
+  private save(): void {
+    if (FileStorage.exists(this.path)) {
+      FileStorage.destroy(this.path);
+    }
+
+    this.tasks.forEach(task => {
+      FileStorage.append(this.path, this.formatTaskAsRaw(task));
+    });
+  }
+
   // TODO: Create a class for CSV string to object conversion
   // and remove notion of "raw" from TaskList
 
   private formatTaskAsRaw(task: Task): string {
-    let { size, description, date, complete } = task;
+    let { identifier, size, description, date, complete } = task;
     date = moment(date).format();
-    return `${size},${description},${date},${complete}`;
+    return `${identifier},${size},${description},${date},${complete}`;
   }
 
   private validateRawTask(rawTask) {
-    const [rawSize, description, rawDate] = rawTask.split(",");
-    return rawSize && description && rawDate;
+    const [identifier, rawSize, description, rawDate] = rawTask.split(",");
+    return identifier && rawSize && description && rawDate;
   }
 
   private convertRawTask(rawTask: string): Task {
-    const [rawSize, description, rawDate, rawComplete] = rawTask.split(",");
+    const [
+      rawIdentifier,
+      rawSize,
+      description,
+      rawDate,
+      rawComplete
+    ] = rawTask.split(",");
 
     const size: TaskSize = TaskSize[rawSize];
     const date: Date = moment(rawDate);
     const complete: boolean = rawComplete == "true";
+    const identifier: number = parseInt(rawIdentifier, 10);
 
-    return { size, description, date, complete } as Task;
+    return { identifier, size, description, date, complete } as Task;
   }
 }
 
 yargs
   .usage("Usage: todo [command] [options]")
-  .command("", "Add a new task by providing a description, or list all tasks")
+  .command("", "Add a new task or list all tasks")
   .command("complete", "Complete a task", function() {
+    const identifier = yargs.argv._[1];
+    if (!isInteger(identifier)) {
+      console.log("Please provide a valid task ID.");
+      process.exit(1);
+    }
+
+    const taskList = new TaskList("/coding/todo/.tasks");
+    taskList.complete(identifier);
+    process.exit(0);
+  })
+  .command("bump", "Upgrade a task size", function() {
     console.log("TODO: Implement this.");
     process.exit(0);
   })
@@ -223,12 +313,16 @@ yargs
       FileStorage.destroy(TASKS_FILE);
     }
     const taskList = new TaskList("/coding/todo/.tasks");
-    SEED_TASKS.forEach(task => taskList.addNewTask(task));
+    SEED_TASKS.forEach(task => taskList.add(task));
     process.exit(0);
   })
   .help();
 
-// TODO: Consider removing notion of task size
+// TODO: Find a better place to put these functions
+function isInteger(value: any): boolean {
+  return value && typeof value === "number";
+}
+
 function getTaskSize(argv: ARGV): TaskSize {
   switch (argv.size) {
     case "large":
@@ -253,12 +347,18 @@ function getDescription(argv: ARGV): string {
   return description;
 }
 
+function generateRandomIdentifier(): number {
+  // More like pseudo-random
+  return Math.floor(Math.random() * 1000);
+}
+
 // The default behavior, add/list, requires no command
 const task: Task = {
   size: getTaskSize(yargs.argv),
   date: moment(),
   description: getDescription(yargs.argv),
-  complete: false
+  complete: false,
+  identifier: generateRandomIdentifier()
 };
 
-new TaskList("/coding/todo/.tasks").addNewTask(task);
+new TaskList("/coding/todo/.tasks").add(task);
