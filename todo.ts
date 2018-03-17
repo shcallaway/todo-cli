@@ -2,28 +2,7 @@ const fs = require("fs");
 const yargs = require("yargs");
 const path = require("path");
 const chalk = require("chalk");
-
-const TASKS_FILE = "/coding/todo/.tasks";
-
-// class CommandLineInterface {
-//   public static printTasks(): void {
-//     new TaskList("/coding/todo/.tasks").printTasks();
-//   }
-
-//   public static clearTasks(): void {
-//     console.log("TODO: Implement this.");
-//   }
-
-//   public static addNewTask(): void {
-//     console.log("argv._ = " + argv._);
-//     const task: Task = {
-//       size: TaskSize.Small,
-//       description: argv._,
-//       datetime: new Date()
-//     };
-//     new TaskList("/coding/todo/.tasks").addNewTask(task);
-//   }
-// }
+const moment = require("moment");
 
 enum TaskSize {
   Small = "Small",
@@ -34,10 +13,49 @@ enum TaskSize {
 interface Task {
   size: TaskSize;
   description: string;
-  datetime: Date;
+  date: Date;
+  complete: boolean;
 }
 
-class FileSystem {
+interface Formatter {
+  format(thing: any): string;
+}
+
+interface ARGV {
+  _: Array<string>;
+  size: string;
+}
+
+const TASKS_FILE = "/coding/todo/.tasks";
+
+const SEED_TASKS = [
+  {
+    size: TaskSize.Large,
+    description: "Example A",
+    date: moment().subtract(8, "days"),
+    complete: false
+  },
+  {
+    size: TaskSize.Medium,
+    description: "Example B",
+    date: moment(),
+    complete: false
+  },
+  {
+    size: TaskSize.Small,
+    description: "Example C",
+    date: moment().subtract(20, "days"),
+    complete: true
+  },
+  {
+    size: TaskSize.Medium,
+    description: "Example C",
+    date: moment().subtract(21, "days"),
+    complete: false
+  }
+];
+
+class FileStorage {
   public static read(path: string): string {
     return fs.readFileSync(path, "utf8");
   }
@@ -55,71 +73,119 @@ class FileSystem {
   }
 }
 
-class TaskList {
-  private tasks: Array<Task>;
-  private path: string;
+class TaskFormatter implements Formatter {
+  public format(task: Task): string {
+    let { size, description, date, complete } = task;
 
-  constructor(path: string) {
-    this.path = path;
+    const dateFormatter = new DateFormatter();
+    const taskSizeFormatter = new TaskSizeFormatter();
 
-    this.tasks = this.getTasksFromFileSystem();
-  }
+    (date as any) = dateFormatter.format(date);
+    (size as any) = taskSizeFormatter.format(size);
 
-  public printTasks(): void {
-    const rawTasks = this.tasks.map(task => this.formatTaskAsPretty(task));
-    rawTasks.forEach(rawTask => console.log(rawTask));
-
-    if (!rawTasks.length) {
-      console.log("There's nothing here.");
-    }
-  }
-
-  public addNewTask(task: Task): void {
-    FileSystem.append(this.path, this.formatTaskAsRaw(task));
-    this.tasks.push(task);
-    console.log(this.formatTaskAsPretty(task));
-  }
-
-  private getTasksFromFileSystem(): Array<Task> {
-    if (!FileSystem.exists(this.path)) {
-      return [] as Array<Task>;
-    }
-
-    return FileSystem.read(this.path)
-      .split("\n")
-      .filter(rawTask => this.validateRawTask(rawTask))
-      .map(rawTask => this.convertRawTask(rawTask));
-  }
-
-  private formatTaskAsPretty(task: Task): string {
-    let { size, description, datetime } = task;
-
-    (datetime as any) = this.formatDate(datetime);
-    (size as string) = this.formatTaskSize(size);
     description = this.formatDescription(description);
+    const result = `${date}${size}${description}`;
 
-    return `${datetime} | ${size} | ${description}`;
-  }
+    if (complete) {
+      return chalk.dim(result);
+    }
 
-  private formatDate(datetime: Date): string {
-    // TODO: Make dates different colors based on how old they are
-    (datetime as any) = datetime.toLocaleDateString("en-US");
-    return chalk.black.bgGreen(datetime);
-    // return chalk.bgRed(taskSize);
-    // return chalk.bgYellow(taskSize);
+    return result;
   }
 
   private formatDescription(description: string): string {
     return chalk.italic(description);
   }
+}
 
-  private formatTaskSize(taskSize: TaskSize): string {
-    return chalk.bold(taskSize as string);
+class TaskSizeFormatter implements Formatter {
+  public format(taskSize: TaskSize): string {
+    return chalk.bold((taskSize as any).padEnd(10));
+  }
+}
+
+class DateFormatter implements Formatter {
+  public format(date: Date): string {
+    let formattedDate = moment(date).format("ddd, MMM D");
+    (formattedDate as any) = formattedDate.padEnd(15);
+
+    if (date < this.calculatePastDate(14)) {
+      return chalk.red(formattedDate);
+    }
+    if (date < this.calculatePastDate(7)) {
+      return chalk.yellow(formattedDate);
+    }
+    return chalk.green(formattedDate);
   }
 
+  private calculatePastDate(numDays: number): Date {
+    return moment().subtract(numDays, "days");
+  }
+}
+
+function taskCompare(a: Task, b: Task): number {
+  // Prefer uncompleted tasks
+  if (a.complete && !b.complete) {
+    return 1;
+  }
+
+  if (b.complete && !a.complete) {
+    return -1;
+  }
+
+  // Fall back to comparing dates
+  // Prefer older tasks to younger ones
+  return a.date > b.date ? 1 : -1;
+}
+
+class TaskList {
+  private path: string;
+  private tasks: Array<Task>;
+  private formatter: TaskFormatter;
+
+  constructor(path: string) {
+    this.path = path;
+    this.tasks = this.getTasksFromFileStorage();
+    this.formatter = new TaskFormatter();
+  }
+
+  public printTasks(): void {
+    const tasks = this.tasks.sort(taskCompare);
+
+    tasks.forEach(task => {
+      const rawTask = this.formatter.format(task);
+      console.log(rawTask);
+    });
+
+    if (!tasks.length) {
+      console.log("There's nothing here!");
+    }
+  }
+
+  public addNewTask(task: Task): void {
+    FileStorage.append(this.path, this.formatTaskAsRaw(task));
+    this.tasks.push(task);
+    console.log(this.formatter.format(task));
+  }
+
+  private getTasksFromFileStorage(): Array<Task> {
+    if (!FileStorage.exists(this.path)) {
+      return [] as Array<Task>;
+    }
+
+    return FileStorage.read(this.path)
+      .split("\n")
+      .filter(rawTask => this.validateRawTask(rawTask))
+      .map(rawTask => this.convertRawTask(rawTask));
+  }
+
+  // TODO: Create a class for CSV string to object conversion
+  // and remove notion of "raw" from TaskList
+
   private formatTaskAsRaw(task: Task): string {
-    const { size, description, datetime } = task;
-    return `${size},${description},${datetime}`;
+    let { size, description, date, complete } = task;
+    date = moment(date).format();
+    return `${size},${description},${date},${complete}`;
   }
 
   private validateRawTask(rawTask) {
@@ -128,70 +194,80 @@ class TaskList {
   }
 
   private convertRawTask(rawTask: string): Task {
-    const [rawSize, description, rawDate] = rawTask.split(",");
+    const [rawSize, description, rawDate, rawComplete] = rawTask.split(",");
 
     const size: TaskSize = TaskSize[rawSize];
-    const datetime: Date = new Date(rawDate);
+    const date: Date = moment(rawDate);
+    const complete: boolean = rawComplete == "true";
 
-    return { size, description, datetime } as Task;
+    return { size, description, date, complete } as Task;
   }
 }
 
 yargs
   .usage("Usage: todo [command] [options]")
-  .command("ls", "List todos", function() {
+  .command("", "Add a new task")
+  .command("ls", "List tasks", function() {
     new TaskList(TASKS_FILE).printTasks();
     process.exit(0);
   })
-  .command("nuke", "Clear all todos", function() {
-    FileSystem.destroy(TASKS_FILE);
+  .command("complete", "Complete a task", function() {
+    console.log("TODO: Implement this.");
     process.exit(0);
   })
-  .option("large", {
-    alias: "l",
-    describe: "Set the size of the new task to 'large'",
-    demandOption: false,
-    type: "boolean"
+  .command("nuke", "Clear all tasks", function() {
+    if (FileStorage.exists(TASKS_FILE)) {
+      FileStorage.destroy(TASKS_FILE);
+    }
+    process.exit(0);
   })
-  .option("medium", {
-    alias: "m",
-    describe: "Set the size of the new task to 'medium'",
-    demandOption: false,
-    type: "boolean"
+  .command("seed", "Seed some example tasks", function() {
+    if (FileStorage.exists(TASKS_FILE)) {
+      FileStorage.destroy(TASKS_FILE);
+    }
+    const taskList = new TaskList("/coding/todo/.tasks");
+    SEED_TASKS.forEach(task => taskList.addNewTask(task));
+    process.exit(0);
   })
-  .option("small", {
+  .option("size", {
     alias: "s",
-    describe: "Set the size of the new task to 'small'",
-    demandOption: false,
-    type: "boolean"
+    describe: "Set the size of the new task",
+    choices: ["large", "medium", "small"],
+    default: "small",
+    type: "string"
   })
   .help();
 
-const argv = yargs.argv;
+// The default behavior, add, requires no command
 
-// For testing purposes...
-if (FileSystem.exists(this.path)) {
-  console.log("Clearing...");
-  FileSystem.destroy("/coding/todo/.tasks");
+function getTaskSize(argv: ARGV): TaskSize {
+  switch (argv.size) {
+    case "large":
+      return TaskSize.Large;
+    case "medium":
+      return TaskSize.Medium;
+    case "small":
+    default:
+      return TaskSize.Small;
+  }
 }
 
-const taskList = new TaskList("/coding/todo/.tasks");
+function getDescription(argv: ARGV): string {
+  const description = yargs.argv._.join(" ");
 
-// console.log("Seeding...");
-// const seedTasks = [
-//   { size: TaskSize.Large, description: "Hello world 1", datetime: new Date() },
-//   { size: TaskSize.Medium, description: "Hello world 2", datetime: new Date() },
-//   { size: TaskSize.Small, description: "Hello world 3", datetime: new Date() }
-// ];
+  if (!description.length) {
+    console.log("Please provide a task description.");
+    process.exit(0);
+  }
 
-// seedTasks.forEach(task => {
-//   taskList.addNewTask(task);
-// });
+  return description;
+}
 
 const task: Task = {
-  size: TaskSize.Small,
-  datetime: new Date(),
-  description: argv._.join(" ")
+  size: getTaskSize(yargs.argv),
+  date: moment(),
+  description: getDescription(yargs.argv),
+  complete: false
 };
 
-taskList.addNewTask(task);
+new TaskList("/coding/todo/.tasks").addNewTask(task);

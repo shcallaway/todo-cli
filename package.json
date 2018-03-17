@@ -15,6 +15,7 @@
   "devDependencies": {
     "@types/node": "^9.4.7",
     "chalk": "^2.3.2",
+    "moment": "^2.21.0",
     "nexe": "^2.0.0-rc.26",
     "typescript": "^2.7.2"
   }
