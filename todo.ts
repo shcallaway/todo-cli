@@ -87,6 +87,7 @@ class TaskFormatter implements Formatter {
     const result = `${date}${size}${description}`;
 
     if (complete) {
+      // ZSH does not support strikethrough
       return chalk.dim(result);
     }
 
@@ -206,11 +207,7 @@ class TaskList {
 
 yargs
   .usage("Usage: todo [command] [options]")
-  .command("", "Add a new task")
-  .command("ls", "List tasks", function() {
-    new TaskList(TASKS_FILE).printTasks();
-    process.exit(0);
-  })
+  .command("", "Add a new task by providing a description, or list all tasks")
   .command("complete", "Complete a task", function() {
     console.log("TODO: Implement this.");
     process.exit(0);
@@ -229,17 +226,9 @@ yargs
     SEED_TASKS.forEach(task => taskList.addNewTask(task));
     process.exit(0);
   })
-  .option("size", {
-    alias: "s",
-    describe: "Set the size of the new task",
-    choices: ["large", "medium", "small"],
-    default: "small",
-    type: "string"
-  })
   .help();
 
-// The default behavior, add, requires no command
-
+// TODO: Consider removing notion of task size
 function getTaskSize(argv: ARGV): TaskSize {
   switch (argv.size) {
     case "large":
@@ -255,14 +244,16 @@ function getTaskSize(argv: ARGV): TaskSize {
 function getDescription(argv: ARGV): string {
   const description = yargs.argv._.join(" ");
 
+  // If there is no description provided, assume they meant ls
   if (!description.length) {
-    console.log("Please provide a task description.");
+    new TaskList(TASKS_FILE).printTasks();
     process.exit(0);
   }
 
   return description;
 }
 
+// The default behavior, add/list, requires no command
 const task: Task = {
   size: getTaskSize(yargs.argv),
   date: moment(),
