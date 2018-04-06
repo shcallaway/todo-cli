@@ -3,16 +3,8 @@ const yargs = require("yargs");
 const path = require("path");
 const chalk = require("chalk");
 const moment = require("moment");
-const emoji = require("node-emoji");
-
-enum TaskSize {
-  Small = "Small",
-  Medium = "Medium",
-  Large = "Large"
-}
 
 interface Task {
-  size: TaskSize;
   description: string;
   date: Date;
   complete: boolean;
@@ -20,7 +12,6 @@ interface Task {
 }
 
 interface TaskUpdates {
-  size?: TaskSize;
   description?: string;
   date?: Date;
   complete?: boolean;
@@ -33,39 +24,28 @@ interface Formatter {
 
 interface ARGV {
   _: Array<string>;
-  size: string;
 }
 
-const TASKS_FILE = "/coding/todo/.tasks";
+const FILE = "/coding/todo/.todo";
 
-const SEED_TASKS = [
+const SEEDS = [
   {
-    size: TaskSize.Large,
-    description: "Example A",
-    date: moment().subtract(8, "days"),
-    complete: false,
-    identifier: generateRandomIdentifier()
-  },
-  {
-    size: TaskSize.Medium,
-    description: "Example B",
+    description: "Hello world",
     date: moment(),
     complete: false,
-    identifier: generateRandomIdentifier()
+    identifier: generatePseudoRandomID()
   },
   {
-    size: TaskSize.Small,
-    description: "Example C",
-    date: moment().subtract(20, "days"),
-    complete: true,
-    identifier: generateRandomIdentifier()
-  },
-  {
-    size: TaskSize.Medium,
-    description: "Example C",
-    date: moment().subtract(21, "days"),
+    description: "Hello world",
+    date: moment().subtract(8, "days"),
     complete: false,
-    identifier: generateRandomIdentifier()
+    identifier: generatePseudoRandomID()
+  },
+  {
+    description: "Hello world",
+    date: moment().subtract(20, "days"),
+    complete: false,
+    identifier: generatePseudoRandomID()
   }
 ];
 
@@ -89,22 +69,21 @@ class FileStorage {
 
 class TaskFormatter implements Formatter {
   public format(task: Task): string {
-    let { size, description, date, complete, identifier } = task;
+    let { description, date, complete, identifier } = task;
 
     const identifierFormatter = new IdentifierFormatter();
     const dateFormatter = new DateFormatter();
-    const taskSizeFormatter = new TaskSizeFormatter();
 
     (identifier as any) = identifierFormatter.format(identifier);
     (date as any) = dateFormatter.format(date);
-    (size as any) = taskSizeFormatter.format(size);
 
     description = this.formatDescription(description);
-    const result = `${identifier}${date}${size}${description}`;
+    let result = `${identifier}${date}${description}`;
 
+    // Format complete tasks more simply
     if (complete) {
-      // ZSH does not support strikethrough
-      return chalk.dim(result);
+      date = chalk.reset(date);
+      result = `${date}${description}`;
     }
 
     return result;
@@ -121,16 +100,10 @@ class IdentifierFormatter implements Formatter {
   }
 }
 
-class TaskSizeFormatter implements Formatter {
-  public format(taskSize: TaskSize): string {
-    return chalk.bold((taskSize as any).padEnd(10));
-  }
-}
-
 class DateFormatter implements Formatter {
   public format(date: Date): string {
     let formattedDate = moment(date).format("ddd, MMM D");
-    (formattedDate as any) = formattedDate.padEnd(15);
+    (formattedDate as any) = formattedDate.padEnd(13);
 
     if (date < this.calculatePastDate(14)) {
       return chalk.red(formattedDate);
@@ -147,16 +120,6 @@ class DateFormatter implements Formatter {
 }
 
 function taskCompare(a: Task, b: Task): number {
-  // Prefer uncompleted tasks
-  if (a.complete && !b.complete) {
-    return 1;
-  }
-
-  if (b.complete && !a.complete) {
-    return -1;
-  }
-
-  // Fall back to comparing dates
   // Prefer older tasks to younger ones
   return a.date > b.date ? 1 : -1;
 }
@@ -172,17 +135,20 @@ class TaskList {
     this.formatter = new TaskFormatter();
   }
 
-  public printTasks(): void {
-    const tasks = this.tasks.sort(taskCompare);
-
-    tasks.forEach(task => {
-      const rawTask = this.formatter.format(task);
-      console.log(rawTask);
+  public printUncompletedTasks(): void {
+    const tasks = this.tasks.filter(task => {
+      return !task.complete;
     });
 
-    if (!tasks.length) {
-      console.log(emoji.emojify("Go outside! :sunny:"));
-    }
+    this.printTasks(tasks);
+  }
+
+  public printCompletedTasks(): void {
+    const tasks = this.tasks.filter(task => {
+      return task.complete;
+    });
+
+    this.printTasks(tasks);
   }
 
   public complete(identifier: number): void {
@@ -203,6 +169,16 @@ class TaskList {
 
     console.log("Added: " + this.formatter.format(task));
     return task;
+  }
+
+  private printTasks(tasks: Array<Task>) {
+    tasks.sort(taskCompare).forEach(task => {
+      console.log(this.formatter.format(task));
+    });
+
+    if (!tasks.length) {
+      console.log("Nothing here.");
+    }
   }
 
   private update(identifier: number, updates: TaskUpdates): Task {
@@ -228,11 +204,11 @@ class TaskList {
   }
 
   private find(identifier: number): number {
-    this.tasks.forEach((task, index) => {
-      if (task.identifier === identifier) {
-        return index;
+    for (let i = 0; i < this.tasks.length; i++) {
+      if (this.tasks[0].identifier === identifier) {
+        return i;
       }
-    });
+    }
 
     return -1;
   }
@@ -256,109 +232,86 @@ class TaskList {
   // and remove notion of "raw" from TaskList
 
   private formatTaskAsRaw(task: Task): string {
-    let { identifier, size, description, date, complete } = task;
+    let { identifier, description, date, complete } = task;
     date = moment(date).format();
-    return `${identifier},${size},${description},${date},${complete}`;
+    return `${identifier},${description},${date},${complete}`;
   }
 
   private validateRawTask(rawTask) {
-    const [identifier, rawSize, description, rawDate] = rawTask.split(",");
-    return identifier && rawSize && description && rawDate;
+    const [identifier, description, rawDate] = rawTask.split(",");
+    return identifier && description && rawDate;
   }
 
   private convertRawTask(rawTask: string): Task {
-    const [
-      rawIdentifier,
-      rawSize,
-      description,
-      rawDate,
-      rawComplete
-    ] = rawTask.split(",");
+    const [rawIdentifier, description, rawDate, rawComplete] = rawTask.split(
+      ","
+    );
 
-    const size: TaskSize = TaskSize[rawSize];
     const date: Date = moment(rawDate);
     const complete: boolean = rawComplete == "true";
     const identifier: number = parseInt(rawIdentifier, 10);
 
-    return { identifier, size, description, date, complete } as Task;
+    return { identifier, description, date, complete } as Task;
   }
 }
 
 yargs
   .usage("Usage: todo [command] [options]")
-  .command("", "Add a new task or list all tasks")
-  .command("complete", "Complete a task", function() {
+  .command("", "Add a new task or list uncompleted tasks")
+  .command("complete", "Complete a task or list completed tasks", function() {
     const identifier = yargs.argv._[1];
+    const list = new TaskList(FILE);
+
     if (!isInteger(identifier)) {
-      console.log("Please provide a valid task ID.");
-      process.exit(1);
+      list.printCompletedTasks();
+      process.exit(0);
     }
 
-    const taskList = new TaskList("/coding/todo/.tasks");
-    taskList.complete(identifier);
-    process.exit(0);
-  })
-  .command("bump", "Upgrade a task size", function() {
-    console.log("TODO: Implement this.");
+    list.complete(identifier);
     process.exit(0);
   })
   .command("nuke", "Clear all tasks", function() {
-    if (FileStorage.exists(TASKS_FILE)) {
-      FileStorage.destroy(TASKS_FILE);
+    if (FileStorage.exists(FILE)) {
+      FileStorage.destroy(FILE);
     }
     process.exit(0);
   })
   .command("seed", "Seed some example tasks", function() {
-    if (FileStorage.exists(TASKS_FILE)) {
-      FileStorage.destroy(TASKS_FILE);
+    if (FileStorage.exists(FILE)) {
+      FileStorage.destroy(FILE);
     }
-    const taskList = new TaskList("/coding/todo/.tasks");
-    SEED_TASKS.forEach(task => taskList.add(task));
+    const list = new TaskList(FILE);
+    SEEDS.forEach(task => list.add(task));
     process.exit(0);
   })
   .help();
 
-// TODO: Find a better place to put these functions
 function isInteger(value: any): boolean {
   return value && typeof value === "number";
 }
 
-function getTaskSize(argv: ARGV): TaskSize {
-  switch (argv.size) {
-    case "large":
-      return TaskSize.Large;
-    case "medium":
-      return TaskSize.Medium;
-    case "small":
-    default:
-      return TaskSize.Small;
-  }
-}
-
 function getDescription(argv: ARGV): string {
-  const description = yargs.argv._.join(" ");
-
-  // If there is no description provided, assume they meant ls
-  if (!description.length) {
-    new TaskList(TASKS_FILE).printTasks();
-    process.exit(0);
-  }
-
-  return description;
+  return yargs.argv._.join(" ");
 }
 
-function generateRandomIdentifier(): number {
-  // More like pseudo-random
-  return Math.floor(Math.random() * 1000);
+function generatePseudoRandomID(): number {
+  return Math.floor(Math.random() * 10000);
 }
 
-// The default behavior, add/list, requires no command
+const list = new TaskList(FILE);
+const description = getDescription(yargs.argv);
+
+// If there is no description provided, assume they meant ls
+if (!description.length) {
+  list.printUncompletedTasks();
+  process.exit(0);
+}
+
 const task: Task = {
-  size: getTaskSize(yargs.argv),
   date: moment(),
-  description: getDescription(yargs.argv),
+  description: description,
   complete: false,
-  identifier: generateRandomIdentifier()
+  identifier: generatePseudoRandomID()
 };
 
-new TaskList("/coding/todo/.tasks").add(task);
+list.add(task);
