@@ -4,67 +4,60 @@ const path = require("path");
 const chalk = require("chalk");
 const moment = require("moment");
 
-interface Task {
-  description: string;
-  date: Date;
-  complete: boolean;
-  identifier: number;
-}
+class Task {
+  public description: string;
+  public date: Date;
+  public complete: boolean;
+  public identifier: number;
 
-interface TaskUpdates {
-  description?: string;
-  date?: Date;
-  complete?: boolean;
-  identifier?: number;
-}
+  constructor(
+    description: string,
+    date?: Date,
+    complete?: boolean,
+    identifier?: number
+  ) {
+    this.description = description;
+    this.date = date || moment();
+    this.complete = complete || false;
+    this.identifier = identifier || Math.floor(Math.random() * 10000);
+  }
 
-interface Formatter {
-  format(thing: any): string;
+  public toRaw(): string {
+    let { identifier, description, date, complete } = this;
+    date = moment(date).format();
+    return `${identifier},${description},${date},${complete}`;
+  }
+
+  public static fromRaw(rawTask: string): Task {
+    const [rawId, description, rawDate, rawComplete] = rawTask.split(",");
+
+    const date: Date = moment(rawDate);
+    const complete: boolean = rawComplete == "true";
+    const identifier: number = parseInt(rawId, 10);
+
+    return new Task(description, date, complete, identifier);
+  }
+
+  public static compare(a: Task, b: Task): number {
+    if (a.complete && !b.complete) {
+      return 1;
+    }
+
+    if (b.complete && !a.complete) {
+      return -1;
+    }
+
+    // Oldest to youngest
+    return a.date > b.date ? 1 : -1;
+  }
 }
 
 interface ARGV {
   _: Array<string>;
 }
 
-const FILE = "/coding/todo/.todo";
-
-const SEEDS = [
-  {
-    description: "Hello world",
-    date: moment(),
-    complete: false,
-    identifier: generatePseudoRandomID()
-  },
-  {
-    description: "Hello world",
-    date: moment().subtract(8, "days"),
-    complete: false,
-    identifier: generatePseudoRandomID()
-  },
-  {
-    description: "Hello world",
-    date: moment().subtract(20, "days"),
-    complete: false,
-    identifier: generatePseudoRandomID()
-  }
-];
-
-class FileStorage {
-  public static read(path: string): string {
-    return fs.readFileSync(path, "utf8");
-  }
-
-  public static append(path: string, data: string): void {
-    fs.appendFileSync(path, data + "\n");
-  }
-
-  public static exists(path: string): boolean {
-    return fs.existsSync(path);
-  }
-
-  public static destroy(path: string): void {
-    fs.unlinkSync(path);
-  }
+interface Formatter {
+  format(thing: any): string;
 }
 
 class TaskFormatter implements Formatter {
@@ -77,20 +70,13 @@ class TaskFormatter implements Formatter {
     (identifier as any) = identifierFormatter.format(identifier);
     (date as any) = dateFormatter.format(date);
 
-    description = this.formatDescription(description);
     let result = `${identifier}${date}${description}`;
 
-    // Format complete tasks more simply
     if (complete) {
-      date = chalk.reset(date);
-      result = `${date}${description}`;
+      result = `${result} ✔`;
     }
 
     return result;
-  }
-
-  private formatDescription(description: string): string {
-    return chalk.italic(description);
   }
 }
 
@@ -119,199 +105,115 @@ class DateFormatter implements Formatter {
   }
 }
 
-function taskCompare(a: Task, b: Task): number {
-  // Prefer older tasks to younger ones
-  return a.date > b.date ? 1 : -1;
-}
-
-class TaskList {
-  private path: string;
-  private tasks: Array<Task>;
-  private formatter: TaskFormatter;
-
-  constructor(path: string) {
-    this.path = path;
-    this.tasks = this.load();
-    this.formatter = new TaskFormatter();
+class TaskManager {
+  public static create(description: string): void {
+    const formatter = new TaskFormatter();
+    const task = new Task(description.trim());
+    TASKS.push(task);
+    console.log(`Added: ${formatter.format(task)}`);
   }
 
-  public printUncompletedTasks(): void {
-    const tasks = this.tasks.filter(task => {
-      return !task.complete;
+  public static complete(identifier: number): void {
+    const formatter = new TaskFormatter();
+    TASKS.forEach(task => {
+      if (task.identifier === identifier) {
+        task.complete = true;
+        console.log(`Completed: ${formatter.format(task)}`);
+      }
     });
-
-    this.printTasks(tasks);
   }
 
-  public printCompletedTasks(): void {
-    const tasks = this.tasks.filter(task => {
-      return task.complete;
+  public static remove(identifier: number): void {
+    const formatter = new TaskFormatter();
+    TASKS.forEach((task, i) => {
+      if (task.identifier === identifier) {
+        TASKS.splice(i, 1);
+        console.log(`Removed: ${formatter.format(task)}`);
+        return;
+      }
     });
-
-    this.printTasks(tasks);
   }
 
-  public complete(identifier: number): void {
-    if (!this.exists(identifier)) {
-      console.log("Could not find task with ID: " + identifier);
-      return;
-    }
-
-    const task = this.update(identifier, { complete: true });
-    this.save();
-
-    console.log("Completed: " + this.formatter.format(task));
-  }
-
-  public add(task: Task): Task {
-    this.tasks.push(task);
-    this.save();
-
-    console.log("Added: " + this.formatter.format(task));
-    return task;
-  }
-
-  private printTasks(tasks: Array<Task>) {
-    tasks.sort(taskCompare).forEach(task => {
-      console.log(this.formatter.format(task));
+  public static print(tasks: Array<Task>): void {
+    const formatter = new TaskFormatter();
+    tasks.sort(Task.compare).forEach(task => {
+      console.log(formatter.format(task));
     });
 
     if (!tasks.length) {
-      console.log("Nothing here.");
+      console.log("There's nothing here.");
     }
-  }
-
-  private update(identifier: number, updates: TaskUpdates): Task {
-    let task: Task = this.remove(identifier);
-    task = (Object as any).assign(task, updates);
-    this.tasks.push(task);
-    return task;
-  }
-
-  private load(): Array<Task> {
-    if (!FileStorage.exists(this.path)) {
-      return [] as Array<Task>;
-    }
-
-    return FileStorage.read(this.path)
-      .split("\n")
-      .filter(rawTask => this.validateRawTask(rawTask))
-      .map(rawTask => this.convertRawTask(rawTask));
-  }
-
-  private exists(identifier: number): boolean {
-    return !!this.find(identifier);
-  }
-
-  private find(identifier: number): number {
-    for (let i = 0; i < this.tasks.length; i++) {
-      if (this.tasks[0].identifier === identifier) {
-        return i;
-      }
-    }
-
-    return -1;
-  }
-
-  private remove(identifier: number): Task {
-    const index = this.find(identifier);
-    return this.tasks.splice(index, 1)[0];
-  }
-
-  private save(): void {
-    if (FileStorage.exists(this.path)) {
-      FileStorage.destroy(this.path);
-    }
-
-    this.tasks.forEach(task => {
-      FileStorage.append(this.path, this.formatTaskAsRaw(task));
-    });
-  }
-
-  // TODO: Create a class for CSV string to object conversion
-  // and remove notion of "raw" from TaskList
-
-  private formatTaskAsRaw(task: Task): string {
-    let { identifier, description, date, complete } = task;
-    date = moment(date).format();
-    return `${identifier},${description},${date},${complete}`;
-  }
-
-  private validateRawTask(rawTask) {
-    const [identifier, description, rawDate] = rawTask.split(",");
-    return identifier && description && rawDate;
-  }
-
-  private convertRawTask(rawTask: string): Task {
-    const [rawIdentifier, description, rawDate, rawComplete] = rawTask.split(
-      ","
-    );
-
-    const date: Date = moment(rawDate);
-    const complete: boolean = rawComplete == "true";
-    const identifier: number = parseInt(rawIdentifier, 10);
-
-    return { identifier, description, date, complete } as Task;
   }
 }
+
+class FileSystem {
+  public static getTasks(): Array<Task> {
+    const rawTasks = fs.readFileSync(FILE, "utf8");
+    return rawTasks
+      .split("\n")
+      .map(rawTask => Task.fromRaw(rawTask))
+      .filter(task => {
+        // Filter out tasks with missing or invalid properties
+        return task.description && task.date && task.identifier;
+      });
+  }
+
+  public static putTasks(tasks: Array<Task>): void {
+    fs.existsSync(FILE) && fs.unlinkSync(FILE);
+    tasks.map(task => task.toRaw()).forEach(task => {
+      // Write each task to a new line
+      fs.appendFileSync(FILE, task + "\n");
+    });
+  }
+}
+
+const FILE = "/coding/todo/.todo";
+
+(function initialize() {
+  !fs.existsSync(FILE) && fs.appendFileSync(FILE, "");
+})();
+
+const TASKS = FileSystem.getTasks();
 
 yargs
   .usage("Usage: todo [command] [options]")
-  .command("", "Add a new task or list uncompleted tasks")
-  .command("complete", "Complete a task or list completed tasks", function() {
-    const identifier = yargs.argv._[1];
-    const list = new TaskList(FILE);
-
-    if (!isInteger(identifier)) {
-      list.printCompletedTasks();
-      process.exit(0);
-    }
-
-    list.complete(identifier);
-    process.exit(0);
-  })
-  .command("nuke", "Clear all tasks", function() {
-    if (FileStorage.exists(FILE)) {
-      FileStorage.destroy(FILE);
-    }
-    process.exit(0);
-  })
-  .command("seed", "Seed some example tasks", function() {
-    if (FileStorage.exists(FILE)) {
-      FileStorage.destroy(FILE);
-    }
-    const list = new TaskList(FILE);
-    SEEDS.forEach(task => list.add(task));
-    process.exit(0);
-  })
+  .command("", "Create a new task or list uncompleted tasks")
+  .command("complete", "Complete a task or list completed tasks", complete)
+  .command("nuke", "Clear all tasks", nuke)
+  .command("remove", "Remove a task", remove)
   .help();
 
-function isInteger(value: any): boolean {
-  return value && typeof value === "number";
-}
+function complete() {
+  const identifier = yargs.argv._[1];
 
-function getDescription(argv: ARGV): string {
-  return yargs.argv._.join(" ");
-}
+  if (identifier && typeof identifier === "number") {
+    TaskManager.complete(identifier);
+    FileSystem.putTasks(TASKS);
+  }
 
-function generatePseudoRandomID(): number {
-  return Math.floor(Math.random() * 10000);
-}
-
-const list = new TaskList(FILE);
-const description = getDescription(yargs.argv);
-
-// If there is no description provided, assume they meant ls
-if (!description.length) {
-  list.printUncompletedTasks();
   process.exit(0);
 }
 
-const task: Task = {
-  date: moment(),
-  description: description,
-  complete: false,
-  identifier: generatePseudoRandomID()
-};
+function nuke() {
+  fs.existsSync(FILE) && fs.unlinkSync(FILE);
+  process.exit(0);
+}
 
-list.add(task);
+function remove() {
+  console.log("Implement me!");
+  process.exit(0);
+}
+
+// This is the default behavior, when no
+// other command is provided
+(function create() {
+  const description = yargs.argv._.join(" ");
+
+  if (description.length) {
+    TaskManager.create(description);
+    FileSystem.putTasks(TASKS);
+    process.exit(0);
+  }
+
+  TaskManager.print(TASKS);
+})();
