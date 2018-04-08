@@ -5,7 +5,8 @@
   "license": "MIT",
   "author": "shcallaway@gmail.com",
   "scripts": {
-    "compile": "./node_modules/typescript/bin/tsc todo.ts && node ./node_modules/nexe/index.js todo.js"
+    "compile": "./node_modules/typescript/bin/tsc todo.ts",
+    "binarize": "node ./node_modules/nexe/index.js todo.js"
   },
   "dependencies": {
     "papaparse": "^4.3.7",
