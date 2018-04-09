@@ -1,5 +1,4 @@
 const fs = require("fs");
-const yargs = require("yargs");
 const path = require("path");
 const chalk = require("chalk");
 const moment = require("moment");
@@ -8,7 +7,7 @@ const FILE = "/coding/todo/.todo";
 
 class CommandLineInterface {
   public static complete() {
-    const id = yargs.argv._[1];
+    const id = parseInt(process.argv[3]);
     const tm = new TaskManager(FILE);
 
     if (id && typeof id === "number") {
@@ -19,7 +18,7 @@ class CommandLineInterface {
   }
 
   public static remove() {
-    const id = yargs.argv._[1];
+    const id = parseInt(process.argv[3]);
     const tm = new TaskManager(FILE);
 
     if (id && typeof id === "number") {
@@ -30,7 +29,7 @@ class CommandLineInterface {
   }
 
   public static create() {
-    const description = yargs.argv._.join(" ");
+    const description = process.argv.slice(2).join(" ");
     const tm = new TaskManager(FILE);
 
     if (description.length) {
@@ -44,6 +43,25 @@ class CommandLineInterface {
   public static nuke() {
     fs.existsSync(FILE) && fs.unlinkSync(FILE);
     process.exit(0);
+  }
+
+  public static help() {
+    console.log(
+      `Usage: todo [command]
+
+Commands:
+complete [id]       - Complete a task
+remove [id]         - Remove a task
+nuke                - Remove all tasks
+help                - Print this help message
+
+Examples:
+todo                - List all tasks
+todo Check my email - Add new task: "Check my email"
+todo complete 874   - Complete task with id 874
+
+Author: Sherwood Callaway`
+    );
   }
 }
 
@@ -210,21 +228,21 @@ class TaskManager {
   }
 }
 
-// TODO: Implement my own ARGV parser, instead of
-// bending yargs out of shape...
-yargs
-  .usage("Usage: todo [command] [options]")
-  .command("", "Create a new task or list uncompleted tasks")
-  .command(
-    "complete",
-    "Complete a task or list completed tasks",
-    CommandLineInterface.complete
-  )
-  .command("nuke", "Clear all tasks", CommandLineInterface.nuke)
-  .command("remove", "Remove a task", CommandLineInterface.remove)
-  .help();
-
-// This is the default behavior:
-// When no other command is provided, either
-// create a new task or list existing tasks
-CommandLineInterface.create();
+switch (process.argv[2]) {
+  case "remove":
+    CommandLineInterface.remove();
+    break;
+  case "complete":
+    CommandLineInterface.complete();
+    break;
+  case "nuke":
+    CommandLineInterface.nuke();
+    break;
+  case "help":
+    CommandLineInterface.help();
+    break;
+  default:
+    // When no other command is provided, either
+    // create a new task or list existing tasks
+    CommandLineInterface.create();
+}

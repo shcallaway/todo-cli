@@ -9,8 +9,7 @@
     "binarize": "node ./node_modules/nexe/index.js todo.js"
   },
   "dependencies": {
-    "papaparse": "^4.3.7",
-    "yargs": "^11.0.0"
+    "papaparse": "^4.3.7"
   },
   "devDependencies": {
     "@types/node": "^9.4.7",
