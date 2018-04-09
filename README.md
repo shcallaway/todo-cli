@@ -4,7 +4,7 @@ A simple, clean todo list for your command line.
 
 ## Usage
 
-WIP
+![todo.gif](todo.gif)
 
 ## Installation
 
