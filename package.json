@@ -9,6 +9,7 @@
     "binarize": "node ./node_modules/nexe/index.js todo.js"
   },
   "dependencies": {
+    "debug": "^3.1.0",
     "papaparse": "^4.3.7"
   },
   "devDependencies": {

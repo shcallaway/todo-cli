@@ -1,68 +1,15 @@
+const os = require("os");
 const fs = require("fs");
 const path = require("path");
 const chalk = require("chalk");
 const moment = require("moment");
+const debug = require("debug")("debug");
 
-const FILE = "/coding/todo/.todo";
-
-class CommandLineInterface {
-  public static complete() {
-    const id = parseInt(process.argv[3]);
-    const tm = new TaskManager(FILE);
-
-    if (id && typeof id === "number") {
-      tm.completeTask(id);
-    }
-
-    process.exit(0);
-  }
-
-  public static remove() {
-    const id = parseInt(process.argv[3]);
-    const tm = new TaskManager(FILE);
-
-    if (id && typeof id === "number") {
-      tm.removeTask(id);
-    }
-
-    process.exit(0);
-  }
-
-  public static create() {
-    const description = process.argv.slice(2).join(" ");
-    const tm = new TaskManager(FILE);
-
-    if (description.length) {
-      tm.createTask(description);
-      process.exit(0);
-    }
-
-    tm.printTasks();
-  }
-
-  public static nuke() {
-    fs.existsSync(FILE) && fs.unlinkSync(FILE);
-    process.exit(0);
-  }
-
-  public static help() {
-    console.log(
-      `Usage: todo [command]
-
-Commands:
-complete [id]       - Complete a task
-remove [id]         - Remove a task
-nuke                - Remove all tasks
-help                - Print this help message
-
-Examples:
-todo                - List all tasks
-todo Check my email - Add new task: "Check my email"
-todo complete 874   - Complete task with id 874
-
-Author: Sherwood Callaway`
-    );
-  }
+enum Commands {
+  Remove = "remove",
+  Complete = "complete",
+  Nuke = "nuke",
+  Help = "help"
 }
 
 class Task {
@@ -162,12 +109,20 @@ class TaskManager {
 
   constructor(file: string) {
     this.file = file;
-    // On initialization, if local file does not exist, create it
-    !fs.existsSync(this.file) && fs.appendFileSync(this.file, "");
+
+    // Create file if it does not already exist
+    if (!fs.existsSync(this.file)) {
+      debug(`Creating new .todo file: ${this.file}`);
+      fs.appendFileSync(this.file, "");
+    }
+
+    debug(`Using .todo file: ${this.file}`);
     this.tasks = this.getTasks();
   }
 
   public createTask(description: string): void {
+    debug(`Creating task with description: ${description}`);
+
     const task = new Task(description.trim());
     this.tasks.push(task);
     console.log(`Added: ${task.description}`);
@@ -176,39 +131,64 @@ class TaskManager {
   }
 
   public completeTask(id: number): void {
-    this.tasks.forEach(task => {
-      if (task.id === id) {
-        task.complete = true;
-        console.log(`Completed: ${task.description}`);
-      }
-    });
+    debug(`Completing task with id: ${id}`);
+
+    const i = this.getTaskPosition(id);
+    if (i < 0) return;
+
+    this.tasks[i].complete = true;
+    console.log(`Completed: ${this.tasks[i].description}`);
 
     this.setTasks();
   }
 
   public removeTask(id: number): void {
-    this.tasks.forEach((task, i) => {
-      if (task.id === id) {
-        this.tasks.splice(i, 1);
-        console.log(`Removed: ${task.description}`);
-        return;
-      }
-    });
+    debug(`Removing task with id: ${id}`);
+
+    const i = this.getTaskPosition(id);
+    if (i < 0) return;
+
+    const task = this.tasks[i];
+    this.tasks.splice(i, 1);
+    console.log(`Removed: ${task.description}`);
 
     this.setTasks();
   }
 
   public printTasks(): void {
+    debug(`Printing tasks.`);
+
     this.tasks.sort(Task.compare).forEach(task => {
       console.log(TaskFormatter.format(task));
     });
 
     if (!this.tasks.length) {
-      console.log("Nothing here.");
+      console.log(`There's nothing here! Try \"${Commands.Help}\".`);
     }
   }
 
+  private getTaskPosition(id: number): number {
+    debug(`Finding position of task with id: ${id}`);
+
+    if (!(id && typeof id === "number")) {
+      console.log("Please enter a valid task id.");
+      return -1;
+    }
+
+    for (let i = 0; i < this.tasks.length; i++) {
+      const task = this.tasks[i];
+      if (task.id === id) {
+        return i;
+      }
+    }
+
+    console.log(`Could not find task with id: ${id}`);
+    return -1;
+  }
+
   private getTasks(): Array<Task> {
+    debug(`Getting tasks from file.`);
+
     const rawTasks = fs.readFileSync(this.file, "utf8");
     return rawTasks
       .split("\n")
@@ -220,6 +200,8 @@ class TaskManager {
   }
 
   private setTasks(): void {
+    debug(`Overwriting tasks file with new data.`);
+
     fs.existsSync(this.file) && fs.unlinkSync(this.file);
     this.tasks.map(task => task.toRaw()).forEach(task => {
       // Write each task to a new line
@@ -228,21 +210,55 @@ class TaskManager {
   }
 }
 
-switch (process.argv[2]) {
-  case "remove":
-    CommandLineInterface.remove();
-    break;
-  case "complete":
-    CommandLineInterface.complete();
-    break;
-  case "nuke":
-    CommandLineInterface.nuke();
-    break;
-  case "help":
-    CommandLineInterface.help();
-    break;
-  default:
-    // When no other command is provided, either
-    // create a new task or list existing tasks
-    CommandLineInterface.create();
-}
+const FILE = `${os.homedir()}/.todo`;
+
+const VERSION = "1.0";
+
+const HELP = `Usage: todo [command]
+
+Commands:
+complete [id]       - Complete a task
+remove [id]         - Remove a task
+nuke                - Remove all tasks
+help                - Print this help message
+
+Examples:
+todo                - List all tasks
+todo Check my email - Add new task: "Check my email"
+todo complete 874   - Complete task with id 874
+
+Author: Sherwood Callaway
+Code: http://github.com/shcallaway/todo
+Version: ${VERSION}`;
+
+(function main() {
+  debug(`File: ${FILE}`);
+  debug(`Version: ${VERSION}`);
+  debug(`ARGV: ${process.argv}`);
+
+  const tm = new TaskManager(FILE);
+
+  switch (process.argv[2]) {
+    case Commands.Remove:
+      tm.removeTask(parseInt(process.argv[3]));
+      break;
+    case Commands.Complete:
+      tm.completeTask(parseInt(process.argv[3]));
+      break;
+    case Commands.Nuke:
+      fs.existsSync(FILE) && fs.unlinkSync(FILE);
+      break;
+    case Commands.Help:
+      console.log(HELP);
+      break;
+    default:
+      // When no other command is provided, either
+      // create a new task or list existing tasks
+      const description = process.argv.slice(2).join(" ");
+      if (description.length) {
+        tm.createTask(description);
+      } else {
+        tm.printTasks();
+      }
+  }
+})();
