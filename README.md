@@ -8,7 +8,15 @@ A simple, clean todo list for your command line.
 
 ## Installation
 
-WIP
+You can download the latest release [here](https://github.com/shcallaway/todo/releases). I recommend moving it into `/usr/local/bin` for convenient access!
+
+Of course, you can also download Todo from your command line:
+
+```
+curl -L https://github.com/shcallaway/todo/releases/download/v1.0/todo -o todo \
+  && chmod 750 todo \
+  && mv todo /usr/local/bin/todo
+```
 
 ## Contributing
 
