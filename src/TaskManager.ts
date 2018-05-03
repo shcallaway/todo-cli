@@ -85,6 +85,10 @@ export default class TaskManager {
       return fs.readFileSync(this.file, "utf8");
   }
 
+  private deleteFile(): void {
+    fs.unlinkSync(this.file)
+  }
+
   private getTaskPosition(id: number): number {
     debug(`Finding position of task with id: ${id}`);
 
@@ -120,7 +124,7 @@ export default class TaskManager {
   private setTasks(): void {
     debug(`Overwriting tasks file with new data.`);
 
-    fs.existsSync(this.file) && fs.unlinkSync(this.file);
+    this.fileExists() && this.deleteFile();
     this.tasks.map(task => task.toRaw()).forEach(task => {
       // Write each task to a new line
       this.appendDataToFile(task + "\n");
