@@ -29,7 +29,7 @@ If you feel compelled to improve Todo, feel free to open an issue or submit a pu
 
 ### Overview
 
-Todo is written in [TypeScript](https://www.typescriptlang.org/). You can compile it to JavaScript via `yarn compile`. From the resulting JS, I use [Nexe](https://github.com/nexe/nexe) to create a binary executable.
+Todo is written in [TypeScript](https://www.typescriptlang.org/). You can compile it to JavaScript via `yarn compile` and create a binary from the resulting JS with `yarn binarize`.
 
 ### Debugging
 
