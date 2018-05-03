@@ -6,16 +6,20 @@
   "author": "shcallaway@gmail.com",
   "scripts": {
     "compile": "./node_modules/typescript/bin/tsc --outDir ./dist ./src/todo.ts",
-    "binarize": "node ./node_modules/nexe/index.js ./dist/todo.js"
+    "binarize": "node ./node_modules/nexe/index.js ./dist/todo.js",
+    "test": "./node_modules/.bin/mocha -r ts-node/register test/*"
   },
-  "dependencies": {
-    "debug": "^3.1.0"
-  },
+  "dependencies": {},
   "devDependencies": {
+    "@types/mocha": "^5.2.0",
     "@types/node": "^9.4.7",
     "chalk": "^2.3.2",
+    "debug": "^3.1.0",
+    "mocha": "^5.1.1",
     "moment": "^2.21.0",
     "nexe": "^2.0.0-rc.26",
+    "sinon": "^5.0.3",
+    "ts-node": "^6.0.2",
     "typescript": "^2.7.2"
   }
 }
