@@ -11,19 +11,20 @@ import Commands from "./Commands";
 import { parseIntegerArguments } from "./Util";
 
 const FILE = `${os.homedir()}/.todo`;
-const VERSION = "1.0";
+const VERSION = "1.1";
 const HELP = `Usage: todo [command]
 
 Commands:
-complete [id]       - Complete a task
-remove [id]         - Remove a task
-nuke                - Remove all tasks
-help                - Print this help message
+complete [id]           - Complete task(s)
+remove [id]             - Remove task(s)
+nuke                    - Remove all tasks
+help                    - Print this help message
 
 Examples:
-todo                - List all tasks
-todo Check my email - Add new task: "Check my email"
-todo complete 874   - Complete task with id 874
+todo                    - List all tasks
+todo Check my email     - Add new task "Check my email"
+todo remove 488         - Remove task with id 488
+todo complete 874 325   - Complete tasks with ids 874 and 325
 
 Author: Sherwood Callaway
 Code: http://github.com/shcallaway/todo
