@@ -8,6 +8,7 @@ const debug = require("debug")("debug");
 import TaskManager from "./TaskManager";
 import Task from "./Task";
 import Commands from "./Commands";
+import { parseIntegerArguments } from "./Util";
 
 const FILE = `${os.homedir()}/.todo`;
 const VERSION = "1.0";
@@ -28,10 +29,6 @@ Author: Sherwood Callaway
 Code: http://github.com/shcallaway/todo
 Version: ${VERSION}`;
 
-function getIDs() {
-  return process.argv.slice(3).map(parseInt);
-}
-
 (function main() {
   debug(`File: ${FILE}`);
   debug(`Version: ${VERSION}`);
@@ -41,10 +38,10 @@ function getIDs() {
 
   switch (process.argv[2]) {
     case Commands.Remove:
-      tm.removeTasks(getIDs());
+      tm.removeTasks(parseIntegerArguments());
       break;
     case Commands.Complete:
-      tm.completeTasks(getIDs());
+      tm.completeTasks(parseIntegerArguments());
       break;
     case Commands.Nuke:
       fs.existsSync(FILE) && fs.unlinkSync(FILE);

@@ -36,6 +36,11 @@ export default class TaskManager {
     this.setTasks();
   }
 
+  // TODO: #completeTasks and #removeTasks should produce smarter output
+  
+  // Completed: 1234, 2345
+  // Could not find tasks with ids: 3456, 4567
+
   public completeTasks(ids: number[]): void {
     ids.forEach(id => {
       this.completeTask(id);
