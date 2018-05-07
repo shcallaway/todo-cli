@@ -4,8 +4,8 @@
   "license": "MIT",
   "author": "shcallaway@gmail.com",
   "scripts": {
-    "compile": "./node_modules/typescript/bin/tsc --outDir ./dist ./src/Main.ts",
-    "binarize": "node ./node_modules/nexe/index.js ./dist/Main.js",
+    "compile": "./node_modules/.bin/tsc --outDir ./dist ./src/Main.ts",
+    "binarize": "./node_modules/.bin/nexe ./dist/Main.js --output=./todo",
     "test": "./node_modules/.bin/mocha -r ts-node/register test/*"
   },
   "dependencies": {},
