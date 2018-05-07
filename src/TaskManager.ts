@@ -31,7 +31,7 @@ export default class TaskManager {
 
     const task = new Task(description.trim());
     this.tasks.push(task);
-    console.log(`Added: ${task.description}`);
+    this.log(`Added: ${task.description}`);
 
     this.setTasks();
   }
@@ -43,7 +43,7 @@ export default class TaskManager {
     if (i < 0) return;
 
     this.tasks[i].complete = true;
-    console.log(`Completed: ${this.tasks[i].description}`);
+    this.log(`Completed: ${this.tasks[i].description}`);
 
     this.setTasks();
   }
@@ -56,7 +56,7 @@ export default class TaskManager {
 
     const task = this.tasks[i];
     this.tasks.splice(i, 1);
-    console.log(`Removed: ${task.description}`);
+    this.log(`Removed: ${task.description}`);
 
     this.setTasks();
   }
@@ -65,12 +65,16 @@ export default class TaskManager {
     debug(`Printing tasks.`);
 
     this.tasks.sort(Task.compare).forEach(task => {
-      console.log(TaskFormatter.format(task));
+      this.log(TaskFormatter.format(task));
     });
 
     if (!this.tasks.length) {
-      console.log(`There's nothing here! Try \"${Commands.Help}\".`);
+      this.log(`There's nothing here! Try \"${Commands.Help}\".`);
     }
+  }
+
+  private log(message: string): void {
+    console.log(message);
   }
 
   private appendDataToFile(data: string): void {
@@ -80,20 +84,20 @@ export default class TaskManager {
   private fileExists(): void {
     fs.existsSync(this.file);
   }
-  
+
   private readFile(): string {
-      return fs.readFileSync(this.file, "utf8");
+    return fs.readFileSync(this.file, "utf8");
   }
 
   private deleteFile(): void {
-    fs.unlinkSync(this.file)
+    fs.unlinkSync(this.file);
   }
 
   private getTaskPosition(id: number): number {
     debug(`Finding position of task with id: ${id}`);
 
     if (!(id && typeof id === "number")) {
-      console.log("Please enter a valid task id.");
+      this.log(`Could not find task with id: ${id}`);
       return -1;
     }
 
@@ -104,7 +108,7 @@ export default class TaskManager {
       }
     }
 
-    console.log(`Could not find task with id: ${id}`);
+    this.log(`Could not find task with id: ${id}`);
     return -1;
   }
 
