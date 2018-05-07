@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const chalk = require("chalk");
 const moment = require("moment");
-const debug = require("debug")("debug");
+const debug = require("debug")("TaskManager");
 
 import Task from "./Task";
 import TaskFormatter from "./TaskFormatter";

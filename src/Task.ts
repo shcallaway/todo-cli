@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const chalk = require("chalk");
 const moment = require("moment");
-const debug = require("debug")("debug");
+const debug = require("debug")("Task");
 
 export default class Task {
   public description: string;
