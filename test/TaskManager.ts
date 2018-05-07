@@ -110,11 +110,11 @@ describe("TaskManager", function() {
 
     it("should print message to console", function() {
       tm.completeTasks([firstTask.id]);
-      assert.ok(log.calledWith(`Completed: ${firstTask.description}`));
+      assert.ok(log.calledWith(`Completed: ${firstTask.id}`));
     });
   });
 
-  describe("#removeTask", function() {
+  describe("#removeTasks", function() {
     let firstTask, secondTask;
 
     beforeEach(function() {
@@ -150,7 +150,7 @@ describe("TaskManager", function() {
 
     it("should print message to console", function() {
       tm.removeTasks([firstTask.id]);
-      assert.ok(log.calledWith(`Removed: ${firstTask.description}`));
+      assert.ok(log.calledWith(`Removed: ${firstTask.id}`));
     });
   });
 

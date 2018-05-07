@@ -36,21 +36,48 @@ export default class TaskManager {
     this.setTasks();
   }
 
-  // TODO: #completeTasks and #removeTasks should produce smarter output
-  
-  // Completed: 1234, 2345
-  // Could not find tasks with ids: 3456, 4567
+  // TODO: #completeTasks and #removeTasks should share more code
 
   public completeTasks(ids: number[]): void {
+    const failure = [];
+    const success = [];
+
     ids.forEach(id => {
-      this.completeTask(id);
+      if (this.completeTask(id)) {
+        success.push(id)
+      } else {
+        failure.push(id);
+      }
     });
+
+    if (success.length) {
+      this.log(`Completed: ${success.join(", ")}`);
+    }
+
+    if (failure.length) {
+      this.log(`Could not find: ${failure.join(", ")}`)
+    }
   }
 
   public removeTasks(ids: number[]): void {
+    const failure = [];
+    const success = [];
+
     ids.forEach(id => {
-      this.removeTask(id);
+      if (this.removeTask(id)) {
+        success.push(id)
+      } else {
+        failure.push(id);
+      }
     });
+
+    if (success.length) {
+      this.log(`Removed: ${success.join(", ")}`);
+    }
+
+    if (failure.length) {
+      this.log(`Could not find: ${failure.join(", ")}`)
+    }
   }
 
   public printTasks(): void {
@@ -65,29 +92,35 @@ export default class TaskManager {
     }
   }
 
-  private completeTask(id: number): void {
+  private completeTask(id: number): boolean {
     debug(`Completing task with id: ${id}`);
-
     const i = this.getTaskPosition(id);
-    if (i < 0) return;
+
+    if (i < 0) {
+      return false
+    };
 
     this.tasks[i].complete = true;
-    this.log(`Completed: ${this.tasks[i].description}`);
-
+    debug(`Completed: ${this.tasks[i].description}`);
     this.setTasks();
+
+    return true;
   }
 
-  private removeTask(id: number): void {
+  private removeTask(id: number): boolean {
     debug(`Removing task with id: ${id}`);
-
     const i = this.getTaskPosition(id);
-    if (i < 0) return;
+
+    if (i < 0) {
+      return false
+    };
 
     const task = this.tasks[i];
     this.tasks.splice(i, 1);
-    this.log(`Removed: ${task.description}`);
-
+    debug(`Removed: ${task.description}`);
     this.setTasks();
+
+    return true;
   }
 
   private log(message: string): void {
@@ -114,7 +147,7 @@ export default class TaskManager {
     debug(`Finding position of task with id: ${id}`);
 
     if (!(id && typeof id === "number")) {
-      this.log(`Could not find task with id: ${id}`);
+      debug(`Could not find task with id: ${id}`);
       return -1;
     }
 
@@ -125,7 +158,7 @@ export default class TaskManager {
       }
     }
 
-    this.log(`Could not find task with id: ${id}`);
+    debug(`Could not find task with id: ${id}`);
     return -1;
   }
 
