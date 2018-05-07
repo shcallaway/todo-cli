@@ -93,8 +93,8 @@ export default class TaskManager {
     fs.appendFileSync(this.file, data);
   }
 
-  private fileExists(): void {
-    fs.existsSync(this.file);
+  private fileExists(): boolean {
+    return fs.existsSync(this.file);
   }
 
   private readFile(): string {
