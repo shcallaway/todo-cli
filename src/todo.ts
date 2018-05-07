@@ -28,6 +28,10 @@ Author: Sherwood Callaway
 Code: http://github.com/shcallaway/todo
 Version: ${VERSION}`;
 
+function getIDs() {
+  return process.argv.slice(3).map(parseInt);
+}
+
 (function main() {
   debug(`File: ${FILE}`);
   debug(`Version: ${VERSION}`);
@@ -37,10 +41,10 @@ Version: ${VERSION}`;
 
   switch (process.argv[2]) {
     case Commands.Remove:
-      tm.removeTask(parseInt(process.argv[3]));
+      tm.removeTasks(getIDs());
       break;
     case Commands.Complete:
-      tm.completeTask(parseInt(process.argv[3]));
+      tm.completeTasks(getIDs());
       break;
     case Commands.Nuke:
       fs.existsSync(FILE) && fs.unlinkSync(FILE);

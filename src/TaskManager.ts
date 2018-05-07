@@ -36,29 +36,16 @@ export default class TaskManager {
     this.setTasks();
   }
 
-  public completeTask(id: number): void {
-    debug(`Completing task with id: ${id}`);
-
-    const i = this.getTaskPosition(id);
-    if (i < 0) return;
-
-    this.tasks[i].complete = true;
-    this.log(`Completed: ${this.tasks[i].description}`);
-
-    this.setTasks();
+  public completeTasks(ids: number[]): void {
+    ids.forEach(id => {
+      this.completeTask(id);
+    });
   }
 
-  public removeTask(id: number): void {
-    debug(`Removing task with id: ${id}`);
-
-    const i = this.getTaskPosition(id);
-    if (i < 0) return;
-
-    const task = this.tasks[i];
-    this.tasks.splice(i, 1);
-    this.log(`Removed: ${task.description}`);
-
-    this.setTasks();
+  public removeTasks(ids: number[]): void {
+    ids.forEach(id => {
+      this.removeTask(id);
+    });
   }
 
   public printTasks(): void {
@@ -71,6 +58,31 @@ export default class TaskManager {
     if (!this.tasks.length) {
       this.log(`There's nothing here! Try \"${Commands.Help}\".`);
     }
+  }
+
+  private completeTask(id: number): void {
+    debug(`Completing task with id: ${id}`);
+
+    const i = this.getTaskPosition(id);
+    if (i < 0) return;
+
+    this.tasks[i].complete = true;
+    this.log(`Completed: ${this.tasks[i].description}`);
+
+    this.setTasks();
+  }
+
+  private removeTask(id: number): void {
+    debug(`Removing task with id: ${id}`);
+
+    const i = this.getTaskPosition(id);
+    if (i < 0) return;
+
+    const task = this.tasks[i];
+    this.tasks.splice(i, 1);
+    this.log(`Removed: ${task.description}`);
+
+    this.setTasks();
   }
 
   private log(message: string): void {
