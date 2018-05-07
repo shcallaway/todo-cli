@@ -1,12 +1,11 @@
 {
   "name": "todo",
   "version": "1.0.0",
-  "main": "todo.js",
   "license": "MIT",
   "author": "shcallaway@gmail.com",
   "scripts": {
-    "compile": "./node_modules/typescript/bin/tsc --outDir ./dist ./src/todo.ts",
-    "binarize": "node ./node_modules/nexe/index.js ./dist/todo.js",
+    "compile": "./node_modules/typescript/bin/tsc --outDir ./dist ./src/Main.ts",
+    "binarize": "node ./node_modules/nexe/index.js ./dist/Main.js",
     "test": "./node_modules/.bin/mocha -r ts-node/register test/*"
   },
   "dependencies": {},
