@@ -22,23 +22,19 @@ curl -L https://github.com/shcallaway/todo/releases/download/v1.0/todo -o todo \
 
 If you encounter a bug or think of an enhancement while using Todo, please open an issue or a pull request.
 
+Todo is written in [TypeScript](https://www.typescriptlang.org/). You can compile it to JavaScript with `yarn compile`. I recommend practicing test-driven developement because compilation slows down the feedback loop significantly.
+
 ### Dependencies
 
 * [Node](https://nodejs.org/en/) 8.4.9
 * [Yarn](https://yarnpkg.com/en/) 1.2.1
 
-### Compilation
+### Testing
 
-Todo is written in [TypeScript](https://www.typescriptlang.org/). You can compile it to JavaScript via `yarn compile`. Create a binary from the resulting JS with `yarn binarize`. 
+Todo is tested using [Mocha](mochajs.org) and [Sinon](http://sinonjs.org/). You can run the tests with `yarn test`.
 
-I recommend practicing test-driven developement because these compilation steps slow down the feedback loop significantly.
-
-### Tests
-
-Todo is tested using [Mocha]() and [Sinon](). You can run the tests via `yarn test`.
-
-### Debugging
+### Debug
 
 Set the following environment variable to see verbose logs: `DEBUG=*`
 
-This feature is available even while using Todo in binary form!
+_This feature is available even while running the binary!_
